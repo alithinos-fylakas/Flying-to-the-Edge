@@ -38,6 +38,8 @@ class SpaceShip:
 
         self.direction = pygame.math.Vector2(0, 0)
         self.spd = 12
+
+        self.bulletGroup = BulletGroup()
     
     def getInput(self):
         keys = pygame.key.get_pressed()
@@ -55,6 +57,9 @@ class SpaceShip:
             self.direction.y = 1
         else:
             self.direction.y = 0
+
+        if (keys[pygame.K_SPACE]):
+            self.shoot()
     
     def move(self):
         if self.direction != (0, 0):
@@ -76,10 +81,47 @@ class SpaceShip:
             self.rect.bottom = HEIGHT
             self.direction.y = 0
 
+    def shoot(self):
+        self.bulletGroup.createBullet(self.rect.centerx, self.rect.centery)
+
     def update(self):
         self.getInput()
         self.move()
         self.borderCollision()
+
+def cursor():
+    cursor = pygame.mouse.get_pos()
+    return cursor
+class Bullet(mvBlock):
+    def __init__(self, width, height, posx, posy, spd):
+        super().__init__(width, height, posx, posy, spd)
+        self.image.fill((0, 80, 0))
+
+class BulletGroup:
+    def __init__(self):
+        self.list = pygame.sprite.Group()
+    
+    def createBullet(self, x0, y0):
+        bullet = Bullet(8, 16, x0, y0, 24)
+        bullet.direction.x = cursor()[0] - x0
+        bullet.direction.x = cursor()[1] - y0
+        bullet.direction.normalize()
+    
+    def delete(self, bul):
+        bul.kill()
+        del bul
+
+    def destroy(self):
+        for bul in self.list.sprites():
+            if bul.rect.centerx >= WIDTH or bul.rect.centerx <= 0:
+                delete(bul)
+                return
+            if bul.rect.centery >= HEIGHT or bul.rect.centery <= 0:
+                delete(bul)
+                return
+    
+    def update(self):
+        self.list.update()
 
 class Asteroid(mvBlock):
     def __init__(self, width, height, posx, posy, spd):
@@ -89,7 +131,6 @@ class Asteroid(mvBlock):
 
 class AsterGroup:
     def __init__(self):
-        super().__init__()
         self.list = pygame.sprite.Group()
         self.start = pygame.time.get_ticks()
 
@@ -110,7 +151,7 @@ class AsterGroup:
             if aster.rect.centery >= HEIGHT + aster.rect.height:
                 aster.kill()
                 del aster
-                print("Asteroid destruído")
+                print("Asteroide destruído")
 
     def update(self):
         self.timer()
@@ -136,16 +177,14 @@ def main():
                 sys.exit()
 
         Nave.update()
+        Nave.bulletGroup.update()
 
         asterGroup.update()
 
         screen.fill(BLACK)
 
-        """for ast in asterGroup.list.sprites():
-            screen.blit(ast.image, ast.rect)
-            #ast.draw()"""
-
         asterGroup.list.draw(screen)
+        Nave.bulletGroup.list.draw(screen)
 
         screen.blit(Nave.surface, Nave.rect)
 
