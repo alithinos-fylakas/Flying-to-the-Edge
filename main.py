@@ -24,6 +24,10 @@ class mvBlock(Block):
         self.direction = pygame.math.Vector2(0, 0)
     
     def move(self):
+
+        if self.direction != (0, 0):
+            self.direction = pygame.math.Vector2.normalize(self.direction)
+
         self.rect.center += self.direction * self.spd
     
     def update(self):
@@ -40,6 +44,8 @@ class SpaceShip:
         self.spd = 12
 
         self.bulletGroup = BulletGroup()
+        self.canShoot = True
+        self.start = 0
     
     def getInput(self):
         keys = pygame.key.get_pressed()
@@ -58,8 +64,10 @@ class SpaceShip:
         else:
             self.direction.y = 0
 
-        if (keys[pygame.K_SPACE]):
+        if (keys[pygame.K_SPACE]) and self.canShoot:
+            self.start = pygame.time.get_ticks()
             self.shoot()
+            self.canShoot = False
     
     def move(self):
         if self.direction != (0, 0):
@@ -81,6 +89,11 @@ class SpaceShip:
             self.rect.bottom = HEIGHT
             self.direction.y = 0
 
+    def timerShoot(self):
+        current = pygame.time.get_ticks()
+        if current - self.start >= 200:
+            self.canShoot = True
+
     def shoot(self):
         self.bulletGroup.createBullet(self.rect.centerx, self.rect.centery)
 
@@ -88,6 +101,7 @@ class SpaceShip:
         self.getInput()
         self.move()
         self.borderCollision()
+        self.timerShoot()
 
 def cursor():
     cursor = pygame.mouse.get_pos()
@@ -102,26 +116,30 @@ class BulletGroup:
         self.list = pygame.sprite.Group()
     
     def createBullet(self, x0, y0):
-        bullet = Bullet(8, 16, x0, y0, 24)
+        bullet = Bullet(8, 16, x0, y0, 8)
         bullet.direction.x = cursor()[0] - x0
-        bullet.direction.x = cursor()[1] - y0
-        bullet.direction.normalize()
+        bullet.direction.y = cursor()[1] - y0
+        self.list.add(bullet)
+        print("Shoot")
+        print(f"{bullet.direction.x}, {bullet.direction.y}")
     
     def delete(self, bul):
         bul.kill()
         del bul
+        print("Bala destruída")
 
     def destroy(self):
         for bul in self.list.sprites():
             if bul.rect.centerx >= WIDTH or bul.rect.centerx <= 0:
-                delete(bul)
+                self.delete(bul)
                 return
             if bul.rect.centery >= HEIGHT or bul.rect.centery <= 0:
-                delete(bul)
+                self.delete(bul)
                 return
     
     def update(self):
         self.list.update()
+        self.destroy()
 
 class Asteroid(mvBlock):
     def __init__(self, width, height, posx, posy, spd):
