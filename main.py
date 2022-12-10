@@ -9,13 +9,27 @@ BLUE = pygame.color.Color(0, 191, 255)
 YELLOW = pygame.color.Color(51,51,0)
 BACKGROUND = pygame.Color('#E01B80')
 
-class Map:
-    def __init__(self):
-        self.size = (WIDTH, HEIGHT)
-        self.surface = pygame.Surface(self.size)
-        self.surface.fill(BACKGROUND)
+# TILES
+class Block(pygame.sprite.Sprite):
+    def __init__(self, width, height, posx, posy):
+        super().__init__()
+        self.image = pygame.Surface( (width, height) )
+        self.rect = self.image.get_rect(center = (posx, posy))
+    
+class mvBlock(Block):
+    def __init__(self, width, height, posx, posy, spd):
+        super().__init__(width, height, posx, posy)
 
-class spaceShip:
+        self.spd = spd
+        self.direction = pygame.math.Vector2(0, 0)
+    
+    def move(self):
+        self.rect.center += self.direction * self.spd
+    
+    def update(self):
+        self.move()
+
+class SpaceShip:
     def __init__ (self):
         self.size = (48, 96)
         self.surface = pygame.Surface(self.size)
@@ -44,7 +58,7 @@ class spaceShip:
     
     def move(self):
         if self.direction != (0, 0):
-            self.direction = self.direction/pygame.math.Vector2.magnitude(self.direction)
+            self.direction = pygame.math.Vector2.normalize(self.direction)
         self.rect.center += self.direction * self.spd
 
     def borderCollision(self):
@@ -67,64 +81,41 @@ class spaceShip:
         self.move()
         self.borderCollision()
 
-class asteroid:
+class Asteroid(mvBlock):
+    def __init__(self, width, height, posx, posy, spd):
+        super().__init__(width, height, posx, posy, spd)
+        self.image.fill(YELLOW)
+        self.direction.y = 1
+
+class AsterGroup:
     def __init__(self):
-        self.size = (96, 96)
-        self.surface = pygame.Surface(self.size)
-        self.surface.fill(YELLOW)
-        self.rect = self.surface.get_rect()
+        super().__init__()
+        self.list = pygame.sprite.Group()
+        self.start = pygame.time.get_ticks()
 
-        self.direction = pygame.math.Vector2(0, 1)
-        self.spd = randint(6, 20)
+    def createAster(self):
+        position = randint(64, WIDTH - 64), 0
+        aster = Asteroid(128, 128, position[0], position[1], randint(8, 16))
+        self.list.add(aster)
+        print("Asteroide criado")
     
-    def move(self):
-        self.rect.center += self.direction * self.spd
-
-    def end(self):
-        if self.rect.top > HEIGHT + aster.size[1]:
-            del self
+    def timer(self):
+        current = pygame.time.get_ticks()
+        if current - self.start >= 2000:
+            self.createAster()
+            self.start = current
+    
+    def destroy(self):
+        for aster in self.list.sprites():
+            if aster.rect.centery >= HEIGHT + aster.rect.height:
+                aster.kill()
+                del aster
+                print("Asteroid destruído")
 
     def update(self):
-        self.move()
-
-class AsteroidGroup:
-
-    def __init__(self):
-        self.list = []
-
-    def createAsteroid(self):
-        aster = asteroid()
-        return aster
-    
-    def appendL(self):
-        wait = False
-
-        if not wait:
-            start = pygame.time.get_ticks()
-            wait = True
-
-        if wait:
-            current = pygame.time.get_ticks()
-            if (current - start >= 500):
-                aster = createAsteroid()
-                self.list.append(aster)
-    
-    def updateAsteroid(self):
-        for aster in self.list:
-            print("Asteróide existe sfd")
-            aster.update()
-    
-    def end(self):
-        for aster in self.list:
-            if (aster.rect.top > HEIGHT + aster.size[1]):
-                aster.end()
-                self.list.pop()
-    
-    def update(self):
-        #self.createAsteroid()
-        self.appendL()
-        self.updateAsteroid()
-        self.end()
+        self.timer()
+        self.list.update()
+        self.destroy()
 
 def main():
     pygame.init()
@@ -132,8 +123,10 @@ def main():
 
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
-    Nave = spaceShip()
+    Nave = SpaceShip()
     Nave.rect.center = (WIDTH/2, HEIGHT//4 * 3)
+
+    asterGroup = AsterGroup()
 
     while True:
 
@@ -144,9 +137,15 @@ def main():
 
         Nave.update()
 
-        AsterGroup.update()
+        asterGroup.update()
 
         screen.fill(BLACK)
+
+        """for ast in asterGroup.list.sprites():
+            screen.blit(ast.image, ast.rect)
+            #ast.draw()"""
+
+        asterGroup.list.draw(screen)
 
         screen.blit(Nave.surface, Nave.rect)
 
