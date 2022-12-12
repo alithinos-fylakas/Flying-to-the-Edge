@@ -9,6 +9,8 @@ BLUE = pygame.color.Color(0, 191, 255)
 YELLOW = pygame.color.Color(51,51,0)
 BACKGROUND = pygame.Color('#E01B80')
 
+#GameManager
+
 # TILES
 class Block(pygame.sprite.Sprite):
     def __init__(self, width, height, posx, posy):
@@ -33,12 +35,130 @@ class mvBlock(Block):
     def update(self):
         self.move()
 
+class colliderAdmin:
+    def __init__(self):
+        self.Nave = SpaceShip()
+        self.Nave.rect.center = (WIDTH/2, HEIGHT//4 * 3)
+
+        self.lastPDMG = 0
+
+        self.asterGroup = AsterGroup()
+        print(f"{self.Nave.HP}")
+
+        self.counterspd = 20
+        self.knockDir = pygame.math.Vector2(0, 0)
+
+    def bulletCollider(self):
+        self.horizontalBullet()
+        self.verticalBullet()
+    
+    def horizontalBullet(self):
+        for aster in self.asterGroup.list.sprites():
+            for bullet in self.Nave.bulletGroup.list.sprites():
+                if aster.rect.colliderect(bullet):
+                    if bullet.direction.x != 0:
+                        aster.HP -= 1
+                        self.Nave.bulletGroup.delete(bullet)
+                        print("bala bateu no asteroide")
+    
+    def verticalBullet(self):
+        for aster in self.asterGroup.list.sprites():
+            print(f"{aster.HP}")
+            for bullet in self.Nave.bulletGroup.list.sprites():
+                if aster.rect.colliderect(bullet):
+                    if bullet.direction.y != 0:
+                        aster.HP -= 1
+                        print(f"{aster.HP}")
+                        self.Nave.bulletGroup.delete(bullet)
+                        print("bala bateu no asteroide")
+
+    def dealDamage(self):
+        if self.Nave.TakeDamage:
+            self.Nave.HP -= 1
+            self.Nave.TakeDamage = False
+            self.lastPDMG = pygame.time.get_ticks()
+        
+    def timerDMG(self):
+        current = pygame.time.get_ticks()
+        if current - self.lastPDMG >= 500:
+            self.Nave.TakeDamage = True
+    
+    def resetCounterSPD(self):
+        if self.counterspd <= 0:
+            self.counterspd = 16
+            self.knockDir.x = 0
+            self.knockDir.y = 0
+            self.Nave.inKnockback = False
+            self.Nave.spd = 12
+
+    def knockback(self):
+
+        if not self.Nave.inKnockback:
+            return
+
+        self.Nave.spd = 0
+
+        if self.knockDir != (0, 0):
+            self.knockDir = pygame.math.Vector2.normalize(self.knockDir)
+        
+        self.Nave.rect.center += self.knockDir * self.counterspd
+
+        self.counterspd -= 0.2
+        self.counterspd = int(self.counterspd)
+            
+
+    def horizontalCollider(self):
+        for aster in self.asterGroup.list.sprites():
+            if self.Nave.rect.colliderect(aster.rect):
+                if self.Nave.direction.x > 0:
+                    self.Nave.rect.right = aster.rect.left
+                    self.knockDir.x = -1
+                
+                if self.Nave.direction.x < 0:
+                    self.Nave.rect.left = aster.rect.right
+                    self.knockDir.x = 1
+                
+                self.dealDamage()
+                self.Nave.inKnockback = True
+                    
+
+    def verticalCollider(self):
+        for aster in self.asterGroup.list.sprites():
+            if self.Nave.rect.colliderect(aster.rect):
+                if self.Nave.direction.y < 0:
+                    self.Nave.rect.top = aster.rect.bottom
+                    self.knockDir.y = 1
+
+                if self.Nave.direction.y > 0:
+                    self.Nave.rect.bottom = aster.rect.top
+                    self.knockDir.y = -1
+
+                self.dealDamage()
+                self.Nave.inKnockback = True
+
+    def colliderShipAster(self):
+        self.horizontalCollider()
+        self.verticalCollider()
+    
+    def update(self):
+        self.Nave.update()
+        self.Nave.bulletGroup.update()
+        self.asterGroup.update()
+        self.colliderShipAster()
+
+        self.timerDMG()
+
+        self.knockback()
+        self.resetCounterSPD()
+
+        self.bulletCollider()
+
 class SpaceShip:
     def __init__ (self):
         self.size = (48, 96)
         self.surface = pygame.Surface(self.size)
         self.surface.fill(BLUE)
-        self.rect = self.surface.get_rect( center = ( randint(48, WIDTH - 48), 16 ) )
+        self.rect = self.surface.get_rect()
 
         self.direction = pygame.math.Vector2(0, 0)
         self.spd = 12
@@ -46,6 +166,13 @@ class SpaceShip:
         self.bulletGroup = BulletGroup()
         self.canShoot = True
         self.start = 0
+
+        self.alive = True
+        self.HP = 5
+
+        self.TakeDamage = True
+
+        self.inKnockback = False
     
     def getInput(self):
         keys = pygame.key.get_pressed()
@@ -116,7 +243,10 @@ class BulletGroup:
         self.list = pygame.sprite.Group()
     
     def createBullet(self, x0, y0):
-        bullet = Bullet(8, 16, x0, y0, 8)
+
+        spd = randint(25, 32)
+
+        bullet = Bullet(16, 16, x0, y0, spd)
         bullet.direction.x = cursor()[0] - x0
         bullet.direction.y = cursor()[1] - y0
         self.list.add(bullet)
@@ -147,6 +277,8 @@ class Asteroid(mvBlock):
         self.image.fill(YELLOW)
         self.direction.y = 1
 
+        self.HP = randint(1, 5)
+
 class AsterGroup:
     def __init__(self):
         self.list = pygame.sprite.Group()
@@ -158,18 +290,29 @@ class AsterGroup:
         self.list.add(aster)
         print("Asteroide criado")
     
+    def delete(self, aster):
+        aster.kill()
+        del aster
+
     def timer(self):
         current = pygame.time.get_ticks()
         if current - self.start >= 2000:
             self.createAster()
             self.start = current
     
+    def outScreen(self, aster = Asteroid(1, 1, 0, 0, 1).rect):
+        if aster.rect.centery >= HEIGHT + aster.rect.height:
+                self.delete(aster)
+                print("Asteroide destruído")
+
+    def killed(self, aster):
+        if aster.HP < 0:
+            self.delete(aster)
+
     def destroy(self):
         for aster in self.list.sprites():
-            if aster.rect.centery >= HEIGHT + aster.rect.height:
-                aster.kill()
-                del aster
-                print("Asteroide destruído")
+            self.outScreen(aster)
+            self.killed(aster)
 
     def update(self):
         self.timer()
@@ -182,10 +325,7 @@ def main():
 
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
-    Nave = SpaceShip()
-    Nave.rect.center = (WIDTH/2, HEIGHT//4 * 3)
-
-    asterGroup = AsterGroup()
+    collider = colliderAdmin()
 
     while True:
 
@@ -194,17 +334,19 @@ def main():
                 pygame.quit()
                 sys.exit()
 
-        Nave.update()
-        Nave.bulletGroup.update()
-
-        asterGroup.update()
+        collider.update()
 
         screen.fill(BLACK)
 
-        asterGroup.list.draw(screen)
-        Nave.bulletGroup.list.draw(screen)
+        collider.asterGroup.list.draw(screen)
+        collider.Nave.bulletGroup.list.draw(screen)
 
-        screen.blit(Nave.surface, Nave.rect)
+        screen.blit(collider.Nave.surface, collider.Nave.rect)
+
+        if collider.Nave.HP <= 0:
+            pygame.quit()
+            sys.exit()
+            break
 
         pygame.display.update()
         clock.tick(FPS)
