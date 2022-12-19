@@ -9,7 +9,62 @@ BLUE = pygame.color.Color(0, 191, 255)
 YELLOW = pygame.color.Color(51,51,0)
 BACKGROUND = pygame.Color('#E01B80')
 
-#GameManager
+#Screens
+
+class Screen:
+    def __init__(self):
+        self.surface = pygame.Surface( (WIDTH, HEIGHT) )
+    
+    def gMinput(self):
+        pass
+
+    def run(self):
+        pass
+
+class Menu(Screen):
+    def __init__(self):
+        super().__init__()
+        self.font = pygame.font.Font(pygame.font.get_default_font(), 96)
+
+        self.play = self.font.render("JOGAR", False, BACKGROUND)
+        self.quit = self.font.render("SAIR", False, BACKGROUND)
+
+        self.playR = self.play.get_rect()
+        self.quitR = self.play.get_rect()
+
+        self.playR.topleft = (WIDTH/2 - self.playR.size[0], HEIGHT/2 - self.playR.size[1])
+        self.quitR.topleft = (WIDTH/2 - self.quitR.size[0], HEIGHT/2 + self.playR.size[1] - self.quitR.size[1])
+
+        self.state = "menu"
+    
+    def action(self):
+        mousepos = pygame.mouse.get_pos()
+        mousepressed = pygame.mouse.get_pressed()
+
+        if mousepressed[0] == 1 and self.playR.collidepoint(mousepos):
+            self.state = "game"
+        if mousepressed[0] == 1 and self.quitR.collidepoint(mousepos):
+            self.state = "quit"
+
+    def run(self):
+        self.action()
+        self.surface.blit(self.play, self.playR )
+        self.surface.blit(self.quit, self.quitR )
+
+class Game(Screen):
+    def __init__(self):
+        super().__init__()
+        self.collider = colliderAdmin()
+    
+    def run(self):
+        self.collider.update()
+
+        self.surface.fill(BLACK)
+
+        self.collider.asterGroup.list.draw(self.surface)
+        self.collider.Nave.bulletGroup.list.draw(self.surface)
+
+        self.surface.blit(self.collider.Nave.surface, self.collider.Nave.rect)
 
 # TILES
 class Block(pygame.sprite.Sprite):
@@ -323,9 +378,15 @@ def main():
     pygame.init()
     clock = pygame.time.Clock()
 
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    display = pygame.display.set_mode((WIDTH, HEIGHT))
 
-    collider = colliderAdmin()
+    #collider = colliderAdmin()
+
+    state = "menu" #It can be "menu" or "game" or "quit"
+
+    menu = Menu()
+
+    game = Game()
 
     while True:
 
@@ -334,21 +395,37 @@ def main():
                 pygame.quit()
                 sys.exit()
 
-        collider.update()
+        """collider.update()
 
-        screen.fill(BLACK)
+        display.fill(BLACK)
 
-        collider.asterGroup.list.draw(screen)
-        collider.Nave.bulletGroup.list.draw(screen)
+        collider.asterGroup.list.draw(display)
+        collider.Nave.bulletGroup.list.draw(display)
 
-        screen.blit(collider.Nave.surface, collider.Nave.rect)
+        display.blit(collider.Nave.surface, collider.Nave.rect)"""
 
-        if collider.Nave.HP <= 0:
-            pygame.quit()
-            sys.exit()
-            break
+        match state:
+            case "menu":
+                menu.run()
 
-        pygame.display.update()
+                display.blit(menu.surface, (0, 0))
+
+                state = menu.state
+
+            case "game":
+                game.run()
+
+                display.blit(game.surface, (0, 0))
+
+                if game.collider.Nave.HP <= 0:
+                    game.collider.Nave.HP = 5
+                    state = "menu"
+            case "quit":
+                pygame.quit()
+                sys.exit()
+                break
+
+        pygame.display.flip()
         clock.tick(FPS)
 
 if __name__ == "__main__":
